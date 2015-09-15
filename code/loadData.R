@@ -26,11 +26,9 @@ extractFeatures <- function(customers, params, train = TRUE) {
         customers$Churn <- factor(customers$Churn, levels = 1:0, 
                                   labels = c("Churn", "NonChurn"))
     }
-    customers$State <- as.factor(customers$State)
-    customers$Area.Code <- as.factor(customers$Area.Code)
     customers$Int.l.Plan <- as.factor(customers$Int.l.Plan)
-    customers$Exch.Code <- substr(customers$Phone, 1, 3)
-    
+    customers$Message.Plan <- as.factor(customers$Message.Plan)
+
     ## add new covariates
     customers <- within(customers, {
         TotalOut.Calls <- Day.Calls + Eve.Calls + Intl.Calls + Night.Calls
