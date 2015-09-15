@@ -55,8 +55,7 @@ extractFeatures <- function(customers, params) {
 
 build.rf <- function(training) {
     cctrl <- trainControl(method = "repeatedcv", number = 2, repeats =  5,
-                          verboseIter = TRUE, classProbs = TRUE,
-                          summaryFunction = twoClassSummary)
+                          classProbs = TRUE, summaryFunction = twoClassSummary)
     modelFit.rf <- train(Churn ~ ., data = training, method = "rf", 
                          trControl = cctrl, metric = "ROC", importance = TRUE, 
                          ntree = 100, replace = TRUE)
@@ -64,24 +63,27 @@ build.rf <- function(training) {
 }
 
 build.treebag <- function(training) {
+    training <- upSample(training, training$Churn, yname = "Churn")
     cctrl <- trainControl(method = "none")
     modelFit.treebag <- train(Churn ~ ., data = training, method = "treebag", 
-                            trControl = cctrl, preProc = c("center", "scale"))
+                            trControl = cctrl, preProc = c("center", "scale"),
+                            nbagg = 10)
     modelFit.treebag
 }
 
-build.gbm <- function(training) {
-    cctrl <- trainControl(method = "cv", number = 5, verboseIter = T,
-                          classProbs = TRUE, summaryFunction = twoClassSummary)
-    modelFit.gbm <- train(Churn ~ ., data = training, method = "gbm",
+build.xgboost <- function(training) {
+    training <- upSample(training, training$Churn, yname = "Churn")
+    cctrl <- trainControl(method = "cv", number = 10, classProbs = TRUE, 
+                          summaryFunction = twoClassSummary)
+    modelFit.xgboost <- train(Churn ~ ., data = training, method = "xgbTree",
                           trControl = cctrl, metric = "ROC",
                           preProc = c("center", "scale"))
-    modelFit.gbm
+    modelFit.xgboost
 }
 
 build.ensemble <- function(training) {
-    cctrl <- trainControl(method = "cv", number = 5, verboseIter = T,
-                          classProbs = TRUE, summaryFunction = twoClassSummary)
+    cctrl <- trainControl(method = "cv", number = 5, classProbs = TRUE, 
+                          summaryFunction = twoClassSummary)
     modelFit.stack <- train(Churn ~ ., data = training, method = "nnet", 
                             trControl = cctrl, metric = "ROC")
     modelFit.stack
@@ -119,7 +121,7 @@ stackEnsembleData <- function(createData) {
                              # adaboost = build.adaboost,
                              # c50 = build.c50, 
                              treebag = build.treebag,
-                             gbm = build.gbm)
+                             xgboost = build.xgboost)
         models <- lapply(build.Models, function(g) g(mydata$training))
         training.stack <- extractEnsembleFeatures(mydata$training, models)
         testing.stack <- extractEnsembleFeatures(mydata$testing, models)
@@ -128,7 +130,7 @@ stackEnsembleData <- function(createData) {
 }
 
 config.singleModel <- list(createData = createSingleModelData,
-                           build = build.gbm, p = 0.7)
+                           build = build.xgboost, p = 0.7)
 config.ensemble <- list(createData = stackEnsembleData(createSingleModelData),
                         build = build.ensemble, p = 0.7)
 config.final <- list(createData = stackEnsembleData(createFinalModelData),
