@@ -115,7 +115,7 @@ twoClassSummary <- function (data, lev = NULL, model = NULL) {
 }
 
 build.rf <- function(training) {
-    training <- upSample(training, training$Churn, yname = "Churn")
+    training <- upSample(training, training$Churn); training$Class <- NULL
     cctrl <- trainControl(method = "repeatedcv", number = 2, repeats = 5,
                           classProbs = TRUE, summaryFunction = twoClassSummary)
     modelFit.rf <- train(Churn ~ ., data = training, method = "rf", 
@@ -125,7 +125,7 @@ build.rf <- function(training) {
 }
 
 build.treebag <- function(training) {
-    training <- upSample(training, training$Churn, yname = "Churn")
+    training <- upSample(training, training$Churn); training$Class <- NULL
     cctrl <- trainControl(method = "none")
     modelFit.treebag <- train(Churn ~ ., data = training, method = "treebag", 
                             trControl = cctrl, preProc = c("center", "scale"),
@@ -134,7 +134,7 @@ build.treebag <- function(training) {
 }
 
 build.xgboost <- function(training) {
-    training <- upSample(training, training$Churn, yname = "Churn")
+    training <- upSample(training, training$Churn); training$Class <- NULL
     cctrl <- trainControl(method = "cv", number = 10, classProbs = TRUE, 
                           summaryFunction = twoClassSummary)
     modelFit.xgboost <- train(Churn ~ ., data = training, method = "xgbTree",
@@ -144,6 +144,7 @@ build.xgboost <- function(training) {
 }
 
 build.ensemble <- function(training) {
+    training <- upSample(training, training$Churn); training$Class <- NULL
     cctrl <- trainControl(method = "cv", number = 5, classProbs = TRUE, 
                           summaryFunction = twoClassSummary)
     modelFit.stack <- train(Churn ~ ., data = training, method = "nnet", 
