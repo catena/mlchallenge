@@ -2,17 +2,16 @@ library(caret)
 library(ggplot2)
 
 set.seed(1010001101)
-source("code/loadData.R")
+source("raw_analysis/models/loadData.R")
 mydata <- createSingleModelData()
 training <- mydata$training
 testing <- mydata$testing
 
-nmin <- sum(training$Churn == "Churn")
-cctrl <- trainControl(method = "cv", number = 5, verboseIter = T, 
-                      classProbs = T, summaryFunction = twoClassSummary)
+cctrl <- trainControl(method = "repeatedcv", number = 2, repeats =  5,
+                      verboseIter = TRUE, classProbs = TRUE,
+                      summaryFunction = twoClassSummary)
 modelFit.rf <- train(Churn ~ ., data = training, method = "rf", trControl = cctrl, 
-                  metric = "ROC", importance = TRUE, strata = training$Churn,
-                  sampsize = c(nmin, nmin * 4), ntree = 100)
+                     metric = "ROC", importance = TRUE, ntree = 100, replace = TRUE)
 
 confusionMatrix(predict(modelFit.rf, training), training$Churn)
 confusionMatrix(predict(modelFit.rf, testing), testing$Churn)

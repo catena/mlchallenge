@@ -1,6 +1,6 @@
-source("code/ensemble.R")
+source("raw_analysis/models/ensemble.R")
 
-source("code/loadData.R")
+source("raw_analysis/models/loadData.R")
 customers <- readProblemData(params)
 processedData <- extractEnsembleFeatures(customers, models)
 predictions <- predict(modelFit.stack, processedData)

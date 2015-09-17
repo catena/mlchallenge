@@ -2,7 +2,7 @@ library(caret)
 library(ggplot2)
 
 set.seed(1010001102)
-source("code/loadData.R")
+source("raw_analysis/models/loadData.R")
 mydata <- createSingleModelData()
 training <- mydata$training
 testing <- mydata$testing
