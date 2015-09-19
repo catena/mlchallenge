@@ -1,0 +1,96 @@
+ensemble
+=========
+               Accuracy : 0.975           
+                 95% CI : (0.9617, 0.9847)
+            Sensitivity : 0.8407          
+            Specificity : 0.9971          
+         Pos Pred Value : 0.9794          
+         Neg Pred Value : 0.9744          
+
+
+c50
+=========                                          
+               Accuracy : 0.9788          
+                  Kappa : 0.9087          
+            Sensitivity : 0.8609          
+            Specificity : 0.9985          
+         Pos Pred Value : 0.9900          
+         Neg Pred Value : 0.9771          
+
+rf
+==========
+               Accuracy : 0.9738          
+                  Kappa : 0.8796          
+            Sensitivity : 0.8165          
+            Specificity : 0.9986          
+         Pos Pred Value : 0.9889          
+         Neg Pred Value : 0.9718  
+
+rrf
+=========
+                Accuracy : 0.975           
+                  Kappa : 0.8858          
+            Sensitivity : 0.8411          
+            Specificity : 0.9957          
+         Pos Pred Value : 0.9677          
+         Neg Pred Value : 0.9760 
+
+adaboost
+==========
+               Accuracy : 0.97                           
+                  Kappa : 0.8774 
+            Sensitivity : 0.8160          
+            Specificity : 0.9985          
+         Pos Pred Value : 0.9903          
+         Neg Pred Value : 0.9670 
+
+svm
+=====
+               Accuracy : 0.9188          
+                  Kappa : 0.6698          
+            Sensitivity : 0.6308          
+            Specificity : 0.9746          
+         Pos Pred Value : 0.8283          
+         Neg Pred Value : 0.9315      
+
+treebag
+==========
+               Accuracy : 0.9712          
+                  Kappa : 0.8703          
+            Sensitivity : 0.8411          
+            Specificity : 0.9913          
+         Pos Pred Value : 0.9375          
+         Neg Pred Value : 0.9759   
+         
+gbm
+======
+                Accuracy : 0.9712          
+                  Kappa : 0.8776          
+            Sensitivity : 0.8083          
+            Specificity : 1.0000          
+         Pos Pred Value : 1.0000          
+         Neg Pred Value : 0.9673
+         
+
+wsrf
+=========
+               Accuracy : 0.9662          
+                  Kappa : 0.8517          
+            Sensitivity : 0.7845          
+            Specificity : 0.9971          
+         Pos Pred Value : 0.9785          
+         Neg Pred Value : 0.9646 
+
+
+adaboost.m1 mfinal=1000,maxdepth=2,coeflearn="breiman"         
+               Accuracy : 0.9725          
+                  Kappa : 0.8929          
+            Sensitivity : 0.8871          
+            Specificity : 0.9882          
+         Pos Pred Value : 0.9322          
+         Neg Pred Value : 0.9795  
+         
+         
+         
+         
+         
