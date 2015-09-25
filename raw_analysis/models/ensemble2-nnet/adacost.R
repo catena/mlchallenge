@@ -10,7 +10,8 @@ select <- function(fila, vardep, ...) {
     predclass
 }
 
-boosting <- function (formula, data, mfinal = 100, control, misswt, ...) 
+boosting <- function (formula, data, mfinal = 100, control, misswt = 1, 
+                      cls = "", decay = 0, ...) 
 {
     require(adabag)
     formula <- as.formula(formula)
@@ -27,6 +28,7 @@ boosting <- function (formula, data, mfinal = 100, control, misswt, ...)
     arboles[[1]] <- rpart(formula, data = data[, -1], control = control)
     nvar <- dim(varImp(arboles[[1]], surrogates = FALSE, competes = FALSE))[1]
     imp <- array(0, c(mfinal, nvar))
+    misswt <- (vardep == cls) * (misswt - 1) + 1
     for (m in 1:mfinal) {
         k <- 1
         while (k == 1) {
@@ -37,13 +39,13 @@ boosting <- function (formula, data, mfinal = 100, control, misswt, ...)
         }
         flearn <- predict(fit, newdata = data[, -1], type = "class")
         ind <- as.numeric(vardep != flearn)
-        err <- sum(misswt * pesos * ind)
-        cw <- sum(misswt * pesos)
-        c <- log((cw - err)/err)
+        err <- sum(pesos * ind)
+        c <- log((1 - err)/err)
         c <- (1/2) * c
         guardarpesos[, m] <- pesos
         pesos <- pesos * exp(c * ind) * misswt
         pesos <- pesos/sum(pesos)
+        misswt <- misswt * (1 - decay)
         maxerror <- 0.5
         eac <- 0.001
         if (err >= maxerror) {
@@ -92,3 +94,27 @@ boosting <- function (formula, data, mfinal = 100, control, misswt, ...)
 }
 
 
+build.ada <- function(training) {
+    grid <- expand.grid(mfinal = 1:5 * 20, maxdepth = 2:3, 
+                        coeflearn = "Breiman")
+    cctrl <- trainControl(method = "cv", number = 10, classProbs = TRUE, 
+                          summaryFunction = twoClassSummary,
+                          verboseIter = DEBUG)
+    modelFit.ada <- train(Churn ~ ., data = training, method = "AdaBoost.M1", 
+                          trControl = cctrl, misswt = 1.02, decay = 0.9,
+                          cls = "Churn", tuneGrid = grid, metric = "F1",
+                          preProc = c("center", "scale"))
+    modelFit.ada
+}
+
+build.ada.raw <- function(training) {
+    grid <- expand.grid(mfinal = 1:5 * 10, maxdepth = 3:5, 
+                        coeflearn = "Breiman")
+    cctrl <- trainControl(method = "cv", number = 10, classProbs = TRUE,
+                          summaryFunction = twoClassSummary,
+                          verboseIter = DEBUG)
+    modelFit.ada <- train(Churn ~ ., data = training, method = "AdaBoost.M1", 
+                          trControl = cctrl,  metric = "F1", tuneGrid = grid,
+                          preProc = c("center", "scale"))
+    modelFit.ada
+}
