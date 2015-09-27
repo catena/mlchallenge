@@ -93,28 +93,29 @@ boosting <- function (formula, data, mfinal = 100, control, misswt = 1,
     ans
 }
 
-
-build.ada <- function(training) {
-    grid <- expand.grid(mfinal = 1:5 * 20, maxdepth = 2:3, 
-                        coeflearn = "Breiman")
-    cctrl <- trainControl(method = "cv", number = 10, classProbs = TRUE, 
-                          summaryFunction = twoClassSummary,
-                          verboseIter = DEBUG)
-    modelFit.ada <- train(Churn ~ ., data = training, method = "AdaBoost.M1", 
-                          trControl = cctrl, misswt = 1.02, decay = 0.9,
-                          cls = "Churn", tuneGrid = grid, metric = "F1",
-                          preProc = c("center", "scale"))
-    modelFit.ada
-}
-
-build.ada.raw <- function(training) {
-    grid <- expand.grid(mfinal = 1:5 * 10, maxdepth = 3:5, 
-                        coeflearn = "Breiman")
-    cctrl <- trainControl(method = "cv", number = 10, classProbs = TRUE,
-                          summaryFunction = twoClassSummary,
-                          verboseIter = DEBUG)
-    modelFit.ada <- train(Churn ~ ., data = training, method = "AdaBoost.M1", 
-                          trControl = cctrl,  metric = "F1", tuneGrid = grid,
-                          preProc = c("center", "scale"))
-    modelFit.ada
-}
+## Reference implementation:
+# 
+# build.ada <- function(training) {
+#     grid <- expand.grid(mfinal = 1:5 * 20, maxdepth = 2:4, 
+#                         coeflearn = "Breiman")
+#     cctrl <- trainControl(method = "cv", number = 5, classProbs = TRUE, 
+#                           summaryFunction = twoClassSummary,
+#                           verboseIter = DEBUG)
+#     modelFit.ada <- train(Churn ~ ., data = training, method = "AdaBoost.M1", 
+#                           trControl = cctrl, misswt = 1.02, decay = 0.9,
+#                           cls = "Churn", tuneGrid = grid, metric = "F1",
+#                           preProc = c("center", "scale"))
+#     modelFit.ada
+# }
+# 
+# build.ada.raw <- function(training) {
+#     grid <- expand.grid(mfinal = 1:5 * 20, maxdepth = 2:5, 
+#                         coeflearn = "Breiman")
+#     cctrl <- trainControl(method = "cv", number = 5, classProbs = TRUE, 
+#                           summaryFunction = twoClassSummary,
+#                           verboseIter = DEBUG)
+#     modelFit.ada <- train(Churn ~ ., data = training, method = "AdaBoost.M1", 
+#                           trControl = cctrl, tuneGrid = grid, metric = "F1",
+#                           preProc = c("center", "scale"))
+#     modelFit.ada
+# }

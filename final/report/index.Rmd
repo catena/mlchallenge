@@ -1,0 +1,257 @@
+---
+title       : Gramener Customer Churn Modeling Challenge
+subtitle    : Stage 2 Submission
+author      : Vishnu
+framework   : io2012                    # {io2012, html5slides, shower, dzslides, ...}
+highlighter : highlight.js              # {highlight.js, prettify, highlight}
+hitheme     : tomorrow                  # 
+widgets     : [mathjax]                 # {mathjax, quiz, bootstrap}
+mode        : selfcontained             # {standalone, draft}
+knit        : slidify::knit2slides
+---
+
+```{r init,include=FALSE}
+library(slidify)
+library(caret)
+library(reshape2)
+library(ggplot2)
+library(gridExtra)
+
+knitr::opts_chunk$set(echo=FALSE, results="hide", message=FALSE, 
+                      warning=FALSE, dev.args = list(bg = 'transparent'))
+set.seed(1010000)
+setwd("../..")
+par(bg = "transparent")
+
+LOAD_AS_LIB <<- TRUE
+source("final/modelFit.R")
+LOAD_AS_LIB <<- FALSE
+
+training <- readTrainData()
+training <- addFeatures(training)
+training$Churn <- factor(training$Churn, levels = 1:0, 
+                          labels = c("Churn", "NonChurn"))
+training$Int.l.Plan <- as.factor(training$Int.l.Plan)
+training$Message.Plan <- as.factor(training$Message.Plan)
+
+rfData <- createSingleModelData()$training
+
+setwd("final/report")
+```
+
+## Churn Prediction Challenge
+
+* Churn Business Problem
+    - Churn represents the loss of an existing customer to a competitor
+    - Churn is a problem for any provider of a subscription service or recurring purchasable
+* Predicting churn is the key to a protective strategy
+    - Can assist churn management by tagging customers most likely to churn
+    - High risk customers should first be sorted by profitability
+    - Campaign targeted to the most porfitable at-risk customers
+    - Retention campaigns must be targeted to the right customers
+* Challenge Problem
+    - Given information about customers of a telecom operator
+    - Identify the customers most likely to defect
+
+---
+
+## Nature of Data and Preprocessing
+
+* Data were provided for 100,000 customers
+    - Complete dataset - no attributes missing for a customer
+    - Highly imbalanced dataset: contains `r sum(training$Churn == "NonChurn")` non-churners and `r sum(training$Churn == "Churn")` churners
+* Feature selection
+    - Target variable: *Churn*
+    - Categorical variables included: *International plan, Message Plan*
+    - Continuous variables included: *Day Calls, Day Mins, Eve Calls, Eve Mins, Night Calls, Night Mins, International Calls, International Mins, Account Length, Messages, CustomerService Calls*
+* Features removed:
+    - 4 *Charge* variables which are linear multiples of 4 *Mins* variables were eliminated
+    - *Area Code*, since it contains only 3 different values
+    - *State* contains 51 levels, with insufficient information in each level
+    - *Phone* doesn't contain relevant data that can be used for prediction
+
+---
+
+## Preprocessing
+
+* Newly created features:
+    - *Total Calls, Total Mins, Total Charge*
+    - 4 _*PropMins_ variables, measures proportion of call duration. <br/>
+      eg: *Day PropMins = Day Mins / Total Mins*
+    - 4 _*PropCalls_ variables, measures proportion of number of calls made. <br/>
+      eg: *Day PropCalls = Day Calls / Total Calls*
+    - *MessagesPerWeek = Messages / Account Length*
+    - 4 _*AverageMinsPerCall_ variables, eg: *Day AverageMinsPerCall = Day Mins / Day Calls*
+* Minimize feature redundancy:
+    - Features having very low variance (few unique values) were removed
+    - Highly correlated variables were eliminated
+    - Boruta algorithm was used to select the final set of features 
+* To handle the imbalance in the data new *synthetic* churners were created using SMOTE sampling technique
+
+---
+
+## Predictive Modeling (Strategy)
+
+* Several learning algorithms were trained on the processed dataset
+    - GLMs, Tree based models, SVMs, Neural networks, Vowpal Wabbit
+* 5 fold repeated cross validation was used to tune model parameters
+* Data was split into 70/30 (train/test) and base models were selected using their performance on the test.
+* F1 metric was used to measure the performance of models.
+    $$latex
+    F1 = 2\frac{pr}{p+r}\ \ \mathrm{where}\ \ p = \frac{tp}{tp+fp},\ \  r = \frac{tp}{tp+fn}
+    $$
+    - Measures accuracy using the statistics precision _p_ and recall/sensitivity _r_. 
+    - Particularly useful in imbalanced datasets where the cost of misclassification of a positive is higher than misclassifying a negative
+
+---
+
+## Predictive Modeling (Comparison of base models)
+
+ Model                    |    F1 Score (OOS)
+--------------------------|-------------------
+C5.0                      |    0.9209476
+Adaboost                  |    0.9010143
+Adacost                   |    0.9126099
+Random Forest             |    0.9082373
+SVM (Radial)              |    0.7161835
+Bagged Tree               |    0.8866876
+GBM                       |    0.8939888
+GLM                       |    0.4295080
+GAM                       |    0.5189876
+Neural network (nnet)     |    0.7216470
+Oblique RF (logistic)     |    0.6980502
+
+---
+
+## Predictive Modeling (contd)
+
+* Classification trees (rpart model) had very low sensitivity (CV Sensitivity $=$ 0.3870) which implies greater number of false non-churners
+* Cost sensitive boosted tree models were found to give the best results (F1 score $\geq$ 0.9) 
+* Bagged tree models were the next best perfomers (F1 score $\approx$ 0.9)
+* Regularization applied to random forests or linear models didn't improve performance.
+* Vowpal Wabbit gave a poor generalization error (F1 score $\le$ 0.5), and hence was discarded.
+
+* Tools Used:
+    - R 3.2.2
+    - Python 2.7
+    - Vowpal Wabbit 8.0.0
+
+---
+
+## Final Prediction Model
+
+* Stack of multiple tree models. For every bagged model another complementary model was trained using SMOTE sampled data to reduce the number of false negatives, thereby stabilizing the model and increasing sensitivity.
+    - Adacost
+    - Random Forest
+    - cost sensitive C5.0 tree
+    - xgboost implementation of GBM
+    - a model ensemble of Bagged Trees
+* Base models were stacked using an aggregate of several neural networks
+* Final model was trained using the entire dataset
+
+---
+
+## Analysis of Results - Variable Importance
+
+* Assessing variable importance guides in finding the most influential features affecting the propensity of risk to churn
+* Random forests were well performing on the dataset and hence was used to determine the variable importance
+* Density plots were used to interpret the results. Preferred over conventional frequency histograms due to imbalance in the dataset
+
+```{r varImportance,echo=FALSE,cache=TRUE,fig.width=9,fig.height=4.5}
+cctrl <- trainControl(method = "cv", number = 2, classProbs = TRUE,
+                      summaryFunction = twoClassSummary)
+modelFit.rf <- train(Churn ~ ., data = rfData, method = "rf", metric = "F1",
+                     trControl = cctrl, ntree = 100, importance = TRUE,
+                     preProc = c("center", "scale"))
+randomForest::varImpPlot(modelFit.rf$finalModel, n = 10, 
+                         main = "Variable Importance")
+```
+
+---
+
+## Analysis of Results - Influential Variables
+
+* The following categories of customers have greater probability that they belong to the population of churners than the non-churners
+    - Customers who make 4 or more calls to the customer service
+    - Customers whose total outgoing calls cost is greater than 75$
+    - Customers who are subscribers of international calls Plan 2
+
+```{r influentialVars,echo=FALSE,fig.height=5,fig.width=14}
+csp <- ggplot(training, aes(x = CustServ.Calls, fill = Churn)) +
+    geom_histogram(alpha = 0.5, binwidth = 0.5, position = "identity",
+                   aes(y = ..density..)) +
+    scale_x_discrete(breaks = 0:10) + 
+    scale_fill_manual(values = c("red", "darkgreen")) +
+    xlab("Customer Service Calls") +
+    ylab("Density") +
+    theme_bw()
+
+tcp <- ggplot(training, aes(x = TotalOut.Charge, fill = Churn)) +
+    geom_histogram(alpha = 0.5, binwidth = 5, position = "identity",
+                   aes(y = ..density..)) +
+    scale_fill_manual(values = c("red", "darkgreen")) +
+    xlab("Total Outgoing Calls Cost") + ylab("Density") +
+    theme_bw()
+
+ilp <- ggplot(training, aes(x = as.integer(Int.l.Plan), fill = Churn)) +
+    geom_histogram(alpha = 0.5, binwidth = 1, position = "identity",
+                   aes(y = ..density..)) +
+    scale_x_discrete(breaks = 1:2, labels = c("Plan 1", "Plan 2")) +
+    scale_fill_manual(values = c("red", "darkgreen")) +
+    xlab("International Plan") + ylab("Density") +
+    theme_bw()
+
+grid.arrange(csp, tcp, ilp, ncol = 3, widths = c(750,750,450))
+
+```
+
+---
+
+## Call Duration Variables
+
+* Customers whose total duration of daytime calls exceed 275mins have greater probability that they belong to the population of churners, and hence have high risk to churn
+
+```{r minsVars,echo=FALSE,fig.width=14,fig.height=5}
+minVars <- c("Day.Mins", "Eve.Mins", "Night.Mins", "Intl.Mins")
+idVars <- c("Area.Code", "Phone", "Churn")
+training.mins <- melt(training, id.vars = idVars, measure.vars = minVars,
+                      value.name = "mins")
+ggplot(training.mins, aes(x = mins, fill = Churn)) + 
+    geom_density(alpha = 0.5) + 
+    scale_fill_manual(values = c("red", "darkgreen")) +
+    facet_wrap(~ variable, scales = "free", ncol = 4) +
+    xlab("Minutes") + ylab("Density") +
+    theme_bw()
+```
+
+---
+
+## Average Call Duration
+
+* Customers whose average duration of daytime calls exceed 2.5mins are more likely to churn. Alongwith the previous result, this is a strong indication that customers are unsatisfied with the daytime call tariffs.
+
+```{r avgCallVars,echo=FALSE,fig.width=14,fig.height=5}
+avgMinsVars <- c("Day.AvgMinsPerCall", "Eve.AvgMinsPerCall", 
+                 "Night.AvgMinsPerCall", "Intl.AvgMinsPerCall")
+idVars <- c("Area.Code", "Phone", "Churn")
+training.avgMins <- melt(training, id.vars = idVars, measure.vars = avgMinsVars,
+                      value.name = "avgmins")
+ggplot(training.avgMins, aes(x = avgmins, fill = Churn)) + 
+    geom_histogram(alpha = 0.5, binwidth = 0.5, position = "identity",
+                   aes(y = ..density..)) +
+    scale_fill_manual(values = c("red", "darkgreen")) +
+    facet_wrap(~ variable, scales = "free", ncol = 4) +
+    xlab("Average Call Duration (mins)") + ylab("Density") +
+    theme_bw()
+```
+
+---
+
+## Conclusion
+
+* Not all the variables have significance in predicting churn
+* *Total Charge, CustomerService Calls, International Plan, Call Duration* variables were effectual in assessing the risk of churn
+* A successful model for prediction and prevention of churn in telecommunication companies can influence very positively an overall profit of companies
+* Prediction model helps to combat churn by identifying customers most likely to defect and taking preventative measures (offering incentives etc) with customers you want to keep
+
+

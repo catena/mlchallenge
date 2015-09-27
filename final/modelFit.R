@@ -89,13 +89,13 @@ twoClassSummary <- function (data, lev = NULL, model = NULL) {
         NA
     else rocObject$auc
     sens <- sensitivity(data[, "pred"], data[, "obs"], lev[1])
-    ppv <- posPredValue(data[, "pred"], data[, "obs"], lev[2])
+    ppv <- posPredValue(data[, "pred"], data[, "obs"], lev[1])
     f1 <- 2 * sens * ppv / (sens + ppv)
     out <- c(ROC = rocAUC, Sens = sens, PPV = ppv, F1 = f1)
     out
 }
 
-balanceBuild <- function(build) {
+smoteSampledBuild <- function(build) {
     function(training) {
         training <- SMOTE(Churn ~ ., data = training, k = 10,
                           perc.over = 200, perc.under = 200)
@@ -103,15 +103,21 @@ balanceBuild <- function(build) {
     }
 }
 
-build.rrf <- function(training) {
-    grid <- expand.grid(mtry = c(2, 15, 29), coefReg = c(1e-9, 1))
+overSampledBuild <- function(build) {
+    function(training) {
+        training <- upSample(training, training$Churn); training$Class <- NULL
+        build(training)
+    }
+}
+
+build.rf <- function(training) {
     cctrl <- trainControl(method = "repeatedcv", number = 5, repeats = 3,
                           classProbs = TRUE, summaryFunction = twoClassSummary,
                           verboseIter = DEBUG)
-    modelFit.rrf <- train(Churn ~ ., data = training, method = "RRFglobal", 
-                         trControl = cctrl, metric = "F1", tuneGrid = grid,
+    modelFit.rf <- train(Churn ~ ., data = training, method = "rf", 
+                         trControl = cctrl, metric = "F1",
                          preProc = c("center", "scale"))
-    modelFit.rrf
+    modelFit.rf
 }
 
 build.treebag <- function(training) {
@@ -132,12 +138,36 @@ build.xgboost <- function(training) {
     modelFit.xgboost
 }
 
+build.c50 <- function(training) {
+    grid <- expand.grid(model = "tree", winnow = FALSE, 
+                        cost = 1:3, trials = c(1, 10, 20))
+    cctrl <- trainControl(method = "cv", number = 10, verboseIter = DEBUG)
+    modelFit.c50 <- train(Churn ~ ., data = training, method = "C5.0Cost",
+                          trControl = cctrl, tuneGrid = grid,
+                          preProc = c("center", "scale"))
+    modelFit.c50
+}
+
+source("final/adacost.R")
+build.ada <- function(training) {
+    grid <- expand.grid(mfinal = 1:5 * 20, maxdepth = 2:4, 
+                        coeflearn = "Breiman")
+    cctrl <- trainControl(method = "cv", number = 5, classProbs = TRUE, 
+                          summaryFunction = twoClassSummary,
+                          verboseIter = DEBUG)
+    modelFit.ada <- train(Churn ~ ., data = training, method = "AdaBoost.M1", 
+                          trControl = cctrl, misswt = 1.02, decay = 0.9,
+                          cls = "Churn", tuneGrid = grid, metric = "F1",
+                          preProc = c("center", "scale"))
+    modelFit.ada
+}
+
 build.ensemble <- function(training) {
     training <- upSample(training, training$Churn); training$Class <- NULL
     cctrl <- trainControl(method = "cv", number = 10, classProbs = TRUE, 
                           summaryFunction = twoClassSummary,
                           verboseIter = DEBUG)
-    modelFit.stack <- train(Churn ~ ., data = training, method = "avNNet", 
+    modelFit.stack <- train(Churn ~ ., data = training, method = "nnet", 
                             trControl = cctrl, metric = "F1", trace = FALSE)
     modelFit.stack
 }
@@ -171,12 +201,13 @@ createFinalModelData <- function() {
 stackEnsembleData <- function(createData) {
     function() {
         modelData <- createData()
-        build.Models <- list(rrf = balanceBuild(build.rrf),
-                             treebag = balanceBuild(build.treebag),
-                             xgboost = balanceBuild(build.xgboost),
-                             rrf.raw = build.rrf,
+        build.Models <- list(rf.raw = build.rf,
+                             ada.raw = build.ada,    # cost sensitive ada
+                             c50.raw = build.c50,    # cost sensitive c50
                              treebag.raw = build.treebag,
-                             xgboost.raw = build.xgboost)
+                             rf = smoteSampledBuild(build.rf),
+                             xgboost = overSampledBuild(build.xgboost),
+                             treebag = smoteSampledBuild(build.treebag))
         models <- lapply(build.Models, function(g) g(modelData$training))
         training.stack <- extractEnsembleFeatures(modelData$training, models)
         testing.stack <- extractEnsembleFeatures(modelData$testing, models)
@@ -185,7 +216,7 @@ stackEnsembleData <- function(createData) {
 }
 
 config.singleModel <- list(createData = createSingleModelData,
-                           build = balanceBuild(build.treebag))
+                           build = build.ada)
 config.ensemble <- list(createData = stackEnsembleData(createSingleModelData),
                         build = build.ensemble)
 config.singleFinal <- list(createData = createFinalModelData,
@@ -218,11 +249,14 @@ runFinalModel <- function(config) {
     solution <- data.frame(Area.Code = testing.orig$Area.Code, 
                            Phone = testing.orig$Phone,
                            Churn = 2 - as.numeric(predictions))
-    write.csv(solution, file = "data/solution.csv", row.names = F, quote = F)
+    write.table(solution, file = "data/solution.csv", sep = ",", quote = F,
+                row.names = F, col.names = F)
     print("solution written")
 }
 
 DEBUG <- TRUE
-# testModel(config.singleModel)
-runFinalModel(config.final)
+if(!exists("LOAD_AS_LIB") || !LOAD_AS_LIB) {
+    # testModel(config.singleModel)
+    runFinalModel(config.final)    
+}
 
