@@ -25,7 +25,7 @@ par(bg = "transparent")
 
 LOAD_AS_LIB <<- TRUE
 source("final/modelFit.R")
-LOAD_AS_LIB <<- FALSE
+rm(LOAD_AS_LIB)
 
 training <- readTrainData()
 training <- addFeatures(training)
@@ -60,11 +60,11 @@ setwd("final/report")
 * Data were provided for 100,000 customers
     - Complete dataset - no attributes missing for a customer
     - Highly imbalanced dataset: contains `r sum(training$Churn == "NonChurn")` non-churners and `r sum(training$Churn == "Churn")` churners
-* Feature selection
+* Feature selected from raw dataset:
     - Target variable: *Churn*
     - Categorical variables included: *International plan, Message Plan*
     - Continuous variables included: *Day Calls, Day Mins, Eve Calls, Eve Mins, Night Calls, Night Mins, International Calls, International Mins, Account Length, Messages, CustomerService Calls*
-* Features removed:
+* Features removed from raw dataset:
     - 4 *Charge* variables which are linear multiples of 4 *Mins* variables were eliminated
     - *Area Code*, since it contains only 3 different values
     - *State* contains 51 levels, with insufficient information in each level
@@ -95,8 +95,8 @@ setwd("final/report")
 * Several learning algorithms were trained on the processed dataset
     - GLMs, Tree based models, SVMs, Neural networks, Vowpal Wabbit
 * 5 fold repeated cross validation was used to tune model parameters
-* Data was split into 70/30 (train/test) and base models were selected using their performance on the test.
-* F1 metric was used to measure the performance of models.
+* Data was split into 70/30 (train/test) and base models were selected using their performance on the test set
+* F1 metric was used to measure the performance of models
     $$latex
     F1 = 2\frac{pr}{p+r}\ \ \mathrm{where}\ \ p = \frac{tp}{tp+fp},\ \  r = \frac{tp}{tp+fn}
     $$
@@ -110,16 +110,16 @@ setwd("final/report")
  Model                    |    F1 Score (OOS)
 --------------------------|-------------------
 C5.0                      |    0.9209476
-Adaboost                  |    0.9010143
 Adacost                   |    0.9126099
+GBM                       |    0.9108625
 Random Forest             |    0.9082373
-SVM (Radial)              |    0.7161835
+Adaboost                  |    0.9010143
 Bagged Tree               |    0.8866876
-GBM                       |    0.8939888
-GLM                       |    0.4295080
-GAM                       |    0.5189876
 Neural network (nnet)     |    0.7216470
+SVM (Radial)              |    0.7161835
 Oblique RF (logistic)     |    0.6980502
+GAM                       |    0.5189876
+GLM                       |    0.4295080
 
 ---
 
@@ -131,7 +131,7 @@ Oblique RF (logistic)     |    0.6980502
 * Regularization applied to random forests or linear models didn't improve performance.
 * Vowpal Wabbit gave a poor generalization error (F1 score $\le$ 0.5), and hence was discarded.
 
-* Tools Used:
+* Tools used for modeling:
     - R 3.2.2
     - Python 2.7
     - Vowpal Wabbit 8.0.0
@@ -140,13 +140,13 @@ Oblique RF (logistic)     |    0.6980502
 
 ## Final Prediction Model
 
-* Stack of multiple tree models. For every bagged model another complementary model was trained using SMOTE sampled data to reduce the number of false negatives, thereby stabilizing the model and increasing sensitivity.
+* Stack of multiple tree models
     - Adacost
     - Random Forest
     - cost sensitive C5.0 tree
     - xgboost implementation of GBM
-    - a model ensemble of Bagged Trees
-* Base models were stacked using an aggregate of several neural networks
+* For every bagged model another complementary model was trained using SMOTE sampled data to reduce the number of false negatives, thereby stabilizing the model and increasing sensitivity
+* Base models were stacked using an aggregate of neural networks
 * Final model was trained using the entire dataset
 
 ---

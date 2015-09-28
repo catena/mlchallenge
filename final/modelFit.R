@@ -1,6 +1,5 @@
 library(caret)
 library(pROC)
-library(DMwR)
 
 readTrainData <- function() {
     customers <- read.csv("data/Training.csv", quote = "", stringsAsFactors = F, 
@@ -95,14 +94,6 @@ twoClassSummary <- function (data, lev = NULL, model = NULL) {
     out
 }
 
-smoteSampledBuild <- function(build) {
-    function(training) {
-        training <- SMOTE(Churn ~ ., data = training, k = 10,
-                          perc.over = 200, perc.under = 200)
-        build(training)
-    }
-}
-
 overSampledBuild <- function(build) {
     function(training) {
         training <- upSample(training, training$Churn); training$Class <- NULL
@@ -118,14 +109,6 @@ build.rf <- function(training) {
                          trControl = cctrl, metric = "F1",
                          preProc = c("center", "scale"))
     modelFit.rf
-}
-
-build.treebag <- function(training) {
-    cctrl <- trainControl(method = "none")
-    modelFit.treebag <- train(Churn ~ ., data = training, method = "treebag",
-                              trControl = cctrl, nbagg = 100,
-                              preProc = c("center", "scale"))
-    modelFit.treebag
 }
 
 build.xgboost <- function(training) {
@@ -201,13 +184,10 @@ createFinalModelData <- function() {
 stackEnsembleData <- function(createData) {
     function() {
         modelData <- createData()
-        build.Models <- list(rf.raw = build.rf,
-                             ada.raw = build.ada,    # cost sensitive ada
+        build.Models <- list(ada.raw = build.ada,    # cost sensitive ada
                              c50.raw = build.c50,    # cost sensitive c50
-                             treebag.raw = build.treebag,
-                             rf = smoteSampledBuild(build.rf),
-                             xgboost = overSampledBuild(build.xgboost),
-                             treebag = smoteSampledBuild(build.treebag))
+                             rf = overSampledBuild(build.rf),
+                             xgboost = overSampledBuild(build.xgboost))
         models <- lapply(build.Models, function(g) g(modelData$training))
         training.stack <- extractEnsembleFeatures(modelData$training, models)
         testing.stack <- extractEnsembleFeatures(modelData$testing, models)
@@ -216,11 +196,11 @@ stackEnsembleData <- function(createData) {
 }
 
 config.singleModel <- list(createData = createSingleModelData,
-                           build = build.ada)
+                           build = overSampledBuild(build.rf))
 config.ensemble <- list(createData = stackEnsembleData(createSingleModelData),
                         build = build.ensemble)
 config.singleFinal <- list(createData = createFinalModelData,
-                           build = build.treebag)
+                           build = build.xgboost)
 config.final <- list(createData = stackEnsembleData(createFinalModelData),
                      build = build.ensemble)
 
@@ -255,7 +235,8 @@ runFinalModel <- function(config) {
 }
 
 DEBUG <- TRUE
-if(!exists("LOAD_AS_LIB") || !LOAD_AS_LIB) {
+set.seed(10101019)
+if(!exists("LOAD_AS_LIB")) {
     # testModel(config.singleModel)
     runFinalModel(config.final)    
 }
