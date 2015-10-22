@@ -1,0 +1,21 @@
+visual inspection of train data: 30000rows X 190cols
+
+removed zero var cols, set na values to 1e-6, downsampled training
+	sens ~ 0.6, ppv ~ 0.1
+
+removing columns with more than 20% NAs
+	ppv dropped from 0.10 to 0.08
+
+changed downsampling to upsampling
+	sampling method has no effect
+
+applying rfimpute
+	oob error after imputing: 38.18%
+	oob error without imputing: >40% 
+
+things to try out:
+some vars exist with 2 unique values:
+    apply(training, 2, sd, na.rm = TRUE) == 0, factorize these vars
+    
+treebag works
+adaboosts works
